@@ -1,18 +1,83 @@
 #include "internal.h"
+#include "bit.h"
 #include <stdint.h>
 
 
 // NOTE: the below is for lorom mapping ONLY.
 // hirom will be implemented later on, once everything is already working
 
-uint8_t snes_cpu_read8(struct SNES_Core* snes, uint8_t bank, uint16_t addr)
+static uint8_t snes_io_read(struct SNES_Core* snes, uint16_t addr)
 {
-    uint8_t data = snes->mem.open_bus;
+    switch (addr)
+    {
+        default:
+            snes_log_fatal("[IO] unhandled read! addr: 0x%04X\n", addr);
+            break;
+    }
 
-    // NOTE: not sure if there's anything special about bank 0xFF
-    // in terms of the reset vectors, so below is a way to have bank 0xFF
-    // be seen as case 0x80
-    // switch ((bank & 0x7F) + (bank == 0xFF))
+    return 0xFF;
+}
+
+static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
+{
+    switch (addr)
+    {
+        case 0x2100: // INIDISP
+            snes->mem.INIDISP.forced_blanking = is_bit_set(7, value);
+            snes->mem.INIDISP.master_brightness = get_bit_range(0, 3, value);
+            if (snes->mem.INIDISP.forced_blanking)
+            {
+                snes_log("forced blank enabled! screen is black!");
+            }
+            break;
+
+        case 0x2140: // APUIO0
+            snes_log("[APUIO0] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2141: // APUIO1
+            snes_log("[APUIO1] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2142: // APUIO2
+            snes_log("[APUIO2] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2143: // APUIO3
+            snes_log("[APUIO3] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x4200: // NMITIMEN
+            snes->mem.NMITIMEN.vblank_enable = is_bit_set(7, value);
+            snes->mem.NMITIMEN.irq = get_bit_range(4, 5, value);
+            snes->mem.NMITIMEN.joypad_enable = is_bit_set(0, value);
+            break;
+
+        case 0x420B: // MDMAEN
+            snes->mem.MDMAEN = value;
+            if (value)
+            {
+                snes_log_fatal("[IO-MDMAEN] channel enabled! DMA needs to start: 0x%02X\n", value);
+            }
+            break;
+
+        case 0x420C: // HDMAEN
+            snes->mem.HDMAEN = value;
+            // todo: check if anything happens should a hdma channel
+            // be enabled via this write!
+            break;
+
+        default:
+            snes_log_fatal("[IO] unhandled write! addr: 0x%04X value: 0x%02X\n", addr, value);
+            break;
+    }
+}
+
+uint8_t snes_cpu_read8(struct SNES_Core* snes, uint32_t addr)
+{
+    addr &= 0xFFFF;
+    const uint8_t bank = (addr >> 16) & 0xFF;
+    uint8_t data = snes->mem.open_bus;
 
     switch (bank & 0x7F)
     {
@@ -24,11 +89,11 @@ uint8_t snes_cpu_read8(struct SNES_Core* snes, uint8_t bank, uint16_t addr)
                     break;
 
                 case 0x2000 ... 0x5FFF: // hardware registers
-                    snes_log_err("reading from hw regs! bank: 0x%02X addr: 0x%04X\n", bank, addr);
+                    data = snes_io_read(snes, addr);
                     break;
 
                 case 0x6000 ... 0x7FFF: // Expansion ram
-                    snes_log_err("reading from expansion ram! bank: 0x%02X addr: 0x%04X\n", bank, addr);
+                    snes_log_fatal("reading from expansion ram! bank: 0x%02X addr: 0x%04X\n", bank, addr);
                     break;
 
                 case 0x8000 ... 0xFFFF: // 32k rom
@@ -42,7 +107,7 @@ uint8_t snes_cpu_read8(struct SNES_Core* snes, uint8_t bank, uint16_t addr)
             break;
 
         case 0x7D: // sram
-            snes_log_err("reading from sram! bank: 0x%02X addr: 0x%04X\n", bank, addr);
+            snes_log_fatal("reading from sram! bank: 0x%02X addr: 0x%04X\n", bank, addr);
             break;
 
         case 0x7E: // wram (1st 64K)
@@ -52,19 +117,16 @@ uint8_t snes_cpu_read8(struct SNES_Core* snes, uint8_t bank, uint16_t addr)
         case 0x7F: // wram (2nd 64K)
             data = snes->mem.wram[addr | 0x10000];
             break;
-
-        // see above note about bank 0xFF
-        // case 0x80: // wram bank 0xFF (reset and nmi vectors)
-        //     data = snes->rom[(addr & 0x3FFF) * bank];
-        //     break;
     }
 
     snes->mem.open_bus = data;
     return data;
 }
 
-void snes_cpu_write8(struct SNES_Core* snes, uint8_t bank, uint16_t addr, uint8_t value)
+void snes_cpu_write8(struct SNES_Core* snes, uint32_t addr, uint8_t value)
 {
+    addr &= 0xFFFF;
+    const uint8_t bank = (addr >> 16) & 0xFF;
     snes->mem.open_bus = value;
 
     switch (bank & 0x7F)
@@ -77,25 +139,25 @@ void snes_cpu_write8(struct SNES_Core* snes, uint8_t bank, uint16_t addr, uint8_
                     break;
 
                 case 0x2000 ... 0x5FFF: // hardware registers
-                    snes_log_err("reading from hw regs! bank: 0x%02X addr: 0x%04X\n", bank, addr);
+                    snes_io_write(snes, addr, value);
                     break;
 
                 case 0x6000 ... 0x7FFF: // Expansion ram
-                    snes_log_err("reading from expansion ram! bank: 0x%02X addr: 0x%04X\n", bank, addr);
+                    snes_log_fatal("writing to expansion ram! bank: 0x%02X addr: 0x%04X value: 0x%02X\n", bank, addr, value);
                     break;
 
                 case 0x8000 ... 0xFFFF: // 32k rom
-                    snes_log_err("writing to rom! bank: 0x%02X addr: 0x%04X value: 0x%02X\n", bank, addr, value);
+                    snes_log_fatal("writing to rom! bank: 0x%02X addr: 0x%04X value: 0x%02X\n", bank, addr, value);
                     break;
             }
             break;
 
         case 0x40 ... 0x7C: // rom
-            snes_log_err("writing to rom! bank: 0x%02X addr: 0x%04X value: 0x%02X\n", bank, addr, value);
+            snes_log_fatal("writing to rom! bank: 0x%02X addr: 0x%04X value: 0x%02X\n", bank, addr, value);
             break;
 
         case 0x7D: // sram
-            snes_log_err("writing to sram! bank: 0x%02X addr: 0x%04X value: 0x%02X\n", bank, addr, value);
+            snes_log_fatal("writing to sram! bank: 0x%02X addr: 0x%04X value: 0x%02X\n", bank, addr, value);
             break;
 
         case 0x7E: // wram (1st 64K)
@@ -110,140 +172,31 @@ void snes_cpu_write8(struct SNES_Core* snes, uint8_t bank, uint16_t addr, uint8_
 
 // todo: check if not 16-bit aligned addr.
 // will 00:FFFF wrap around to 01:0000 or 00:0000?
-uint16_t snes_cpu_read16(struct SNES_Core* snes, uint8_t bank, uint16_t addr)
+uint16_t snes_cpu_read16(struct SNES_Core* snes, uint32_t addr)
 {
-    const uint8_t lo = snes_cpu_read8(snes, bank, addr + 0);
-    const uint8_t hi = snes_cpu_read8(snes, bank, addr + 1);
+    const uint16_t lo = snes_cpu_read8(snes, addr + 0);
+    const uint16_t hi = snes_cpu_read8(snes, addr + 1);
 
     return (hi << 8) | lo;
 }
 
-void snes_cpu_write16(struct SNES_Core* snes, uint8_t bank, uint16_t addr, uint16_t value)
+uint32_t snes_cpu_read24(struct SNES_Core* snes, uint32_t addr)
 {
-    snes_cpu_write8(snes, bank, addr + 0, value & 0xFF);
-    snes_cpu_write8(snes, bank, addr + 1, value >> 8);
+    const uint32_t lo = snes_cpu_read16(snes, addr + 0);
+    const uint32_t hi = snes_cpu_read16(snes, addr + 2);
+
+    return ((hi << 16) | lo) & 0x00FFFFFF;
 }
 
-#if 0
-// SOURCE: https://wiki.superfamicom.org/memory-mapping
-uint8_t snes_cpu_read8(struct SNES_Core* snes, uint16_t addr)
+void snes_cpu_write16(struct SNES_Core* snes, uint32_t addr, uint16_t value)
 {
-    const uint8_t bank = addr >> 16;
-
-    switch (bank)
-    {
-        case 0x00 ... 0x3F:
-        case 0x80 ... 0xBF:
-            switch (addr & 0xFF)
-            {
-                case 0x0000 ... 0x1FFF:
-                    // [SLOW] addr bus A + /WRAM (mirror 0x7E:0000-0x1FFF)
-                    break;
-
-                case 0x2000 ... 0x20FF:
-                    // [SLOW] addr bus A
-                    break;
-
-                case 0x2100 ... 0x21FF:
-                    // [FAST] addr bus B
-                    break;
-
-                case 0x2200 ... 0x3FFF:
-                    // [FAST] addr bus A
-                    break;
-
-                case 0x4000 ... 0x41FF:
-                    // [XSLOW] internal cpu registers
-                    break;
-
-                case 0x4200 ... 0x43FF:
-                    // [FAST] internal cpu registers
-                    break;
-
-                case 0x4400 ... 0x5FFF:
-                    // [FAST] addr bus A
-                    break;
-
-                case 0x6000 ... 0x7FFF:
-                    // [SLOW] addr bus A
-                    break;
-
-                case 0x8000 ... 0xFFFF:
-                    // [SLOW] addr bus A + /CART
-                    break;
-            }
-            break;
-
-        case 0x40 ... 0x7D:
-        case 0xC0 ... 0xFF:
-            // [SLOW] addr bus A + /CART
-            break;
-
-        case 0x7E ... 0x7F:
-            // [SLOW] addr bus A + /WRAM
-            break;
-    }
-
-    return 0;
+    snes_cpu_write8(snes, addr + 0, (value >> 0) & 0xFF);
+    snes_cpu_write8(snes, addr + 1, (value >> 8) & 0xFF);
 }
 
-void snes_cpu_write8(struct SNES_Core* snes, uint16_t addr, uint8_t value)
-{
-    const uint8_t bank = addr >> 16;
-    snes->mem.open_bus = value;
-
-    switch (bank)
-    {
-        case 0x00 ... 0x3F:
-        case 0x80 ... 0xBF:
-            switch (addr & 0xFF)
-            {
-                case 0x0000 ... 0x1FFF:
-                    // [SLOW] addr bus A + /WRAM (mirror 0x7E:0000-0x1FFF)
-                    break;
-
-                case 0x2000 ... 0x20FF:
-                    // [SLOW] addr bus A
-                    break;
-
-                case 0x2100 ... 0x21FF:
-                    // [FAST] addr bus B
-                    break;
-
-                case 0x2200 ... 0x3FFF:
-                    // [FAST] addr bus A
-                    break;
-
-                case 0x4000 ... 0x41FF:
-                    // [XSLOW] internal cpu registers
-                    break;
-
-                case 0x4200 ... 0x43FF:
-                    // [FAST] internal cpu registers
-                    break;
-
-                case 0x4400 ... 0x5FFF:
-                    // [FAST] addr bus A
-                    break;
-
-                case 0x6000 ... 0x7FFF:
-                    // [SLOW] addr bus A
-                    break;
-
-                case 0x8000 ... 0xFFFF:
-                    // [SLOW] addr bus A + /CART
-                    break;
-            }
-            break;
-
-        case 0x40 ... 0x7D:
-        case 0xC0 ... 0xFF:
-            // [SLOW] addr bus A + /CART
-            break;
-
-        case 0x7E ... 0x7F:
-            // [SLOW] addr bus A + /WRAM
-            break;
-    }
-}
-#endif
+// this won't be needed i don't think
+// void snes_cpu_write24(struct SNES_Core* snes, uint32_t addr, uint16_t value)
+// {
+//     snes_cpu_write16(snes, addr + 0, (value >> 0) & 0xFF);
+//     snes_cpu_write16(snes, addr + 1, (value >> 8) & 0xFF);
+// }

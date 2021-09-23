@@ -25,11 +25,11 @@ extern "C" {
     #define snes_log_fatal(...)
 #endif // SNES_DEBUG
 
-uint8_t snes_cpu_read8(struct SNES_Core* snes, uint8_t bank, uint16_t addr);
-uint16_t snes_cpu_read16(struct SNES_Core* snes, uint8_t bank, uint16_t addr);
+uint8_t snes_cpu_read8(struct SNES_Core* snes, uint32_t addr);
+uint16_t snes_cpu_read16(struct SNES_Core* snes, uint32_t addr);
 
-void snes_cpu_write8(struct SNES_Core* snes, uint8_t bank, uint16_t addr, uint8_t value);
-void snes_cpu_write16(struct SNES_Core* snes, uint8_t bank, uint16_t addr, uint16_t value);
+void snes_cpu_write8(struct SNES_Core* snes, uint32_t addr, uint8_t value);
+void snes_cpu_write16(struct SNES_Core* snes, uint32_t addr, uint16_t value);
 
 bool snes_cpu_init(struct SNES_Core* snes);
 bool snes_ppu_init(struct SNES_Core* snes);

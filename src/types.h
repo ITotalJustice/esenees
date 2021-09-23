@@ -82,6 +82,19 @@ struct SNES_GameTitle
     char title[22]; // NULL terminated
 };
 
+struct SNES_NMITIMEN
+{
+    bool vblank_enable;
+    uint8_t irq; // not sure on this
+    bool joypad_enable;
+};
+
+struct SNES_INIDISP
+{
+    bool forced_blanking; // 0=normal, 1=screen black
+    uint8_t master_brightness; // 0=screen black 1=dim etc
+};
+
 struct SNES_Cart
 {
     size_t rom_size;
@@ -93,6 +106,7 @@ struct SNES_Cart
 
 struct SNES_Cpu
 {
+    uint32_t oprand;
     uint16_t cycles;
 
     uint16_t PC;
@@ -132,6 +146,12 @@ struct SNES_Apu
 struct SNES_Mem
 {
     uint8_t wram[1024 * 128]; // 128KiB
+
+    struct SNES_NMITIMEN NMITIMEN;
+    struct SNES_INIDISP INIDISP;
+    uint8_t HDMAEN; // hdma channel(s) enable
+    uint8_t MDMAEN; // general dma channel(s)
+
     // last value placed on the data bus
     uint8_t open_bus;
 };
