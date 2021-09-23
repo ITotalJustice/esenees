@@ -27,6 +27,7 @@ extern "C" {
 
 uint8_t snes_cpu_read8(struct SNES_Core* snes, uint32_t addr);
 uint16_t snes_cpu_read16(struct SNES_Core* snes, uint32_t addr);
+uint32_t snes_cpu_read24(struct SNES_Core* snes, uint32_t addr);
 
 void snes_cpu_write8(struct SNES_Core* snes, uint32_t addr, uint8_t value);
 void snes_cpu_write16(struct SNES_Core* snes, uint32_t addr, uint16_t value);

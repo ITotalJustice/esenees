@@ -27,7 +27,7 @@ static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
             snes->mem.INIDISP.master_brightness = get_bit_range(0, 3, value);
             if (snes->mem.INIDISP.forced_blanking)
             {
-                snes_log("forced blank enabled! screen is black!");
+                snes_log("forced blank enabled! screen is black!\n");
             }
             break;
 
@@ -75,8 +75,8 @@ static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
 
 uint8_t snes_cpu_read8(struct SNES_Core* snes, uint32_t addr)
 {
-    addr &= 0xFFFF;
     const uint8_t bank = (addr >> 16) & 0xFF;
+    addr &= 0xFFFF;
     uint8_t data = snes->mem.open_bus;
 
     switch (bank & 0x7F)
@@ -125,8 +125,8 @@ uint8_t snes_cpu_read8(struct SNES_Core* snes, uint32_t addr)
 
 void snes_cpu_write8(struct SNES_Core* snes, uint32_t addr, uint8_t value)
 {
-    addr &= 0xFFFF;
     const uint8_t bank = (addr >> 16) & 0xFF;
+    addr &= 0xFFFF;
     snes->mem.open_bus = value;
 
     switch (bank & 0x7F)

@@ -119,7 +119,7 @@ struct SNES_Cpu
     uint8_t DBR; // data bank register (bit 16-24 of addr)
 
     // should this be a reg instead?
-    bool flag_B; // break
+    bool flag_B; // break (emulation mode only)
     bool flag_N; // negative
     bool flag_V; // overflow
     bool flag_M; // accumulator width
