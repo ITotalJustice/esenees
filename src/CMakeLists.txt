@@ -17,7 +17,10 @@ add_library(libsnes
 
 
 target_include_directories(libsnes PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(libsnes PRIVATE m)
+
+IF (NOT WIN32)
+  target_link_libraries(libsnes PRIVATE m)
+ENDIF()
 
 # (C)flags for each compiler
 # Werror is disabled atm because it's very annoying early into a project
@@ -79,6 +82,7 @@ list(APPEND clang_flags
     -Wbitwise-op-parentheses
     -Wbitfield-enum-conversion
     -Wno-missing-braces # false positive
+    -Wno-gnu-case-range #project using gnu case ranges intentionally
 
     # can try enabling this just to see what breaks (still compiles as of clang 11)
     # be sure to enable (well, disable) the below flags else a *lot* of "errors"
