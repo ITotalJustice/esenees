@@ -2,3 +2,4 @@ build
 compile_commands.*
 roms
 *.sfc
+.cache

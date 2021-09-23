@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <tgmath.h> // not sure how portable this is, if issue, use math.h and cast
+#include <math.h>
 
 static struct SNES_Header snes_get_header(const uint8_t* rom, size_t size)
 {
