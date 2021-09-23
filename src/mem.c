@@ -1,6 +1,7 @@
 #include "internal.h"
 #include "bit.h"
 #include <stdint.h>
+#include <stdlib.h>
 
 
 // NOTE: the below is for lorom mapping ONLY.
@@ -8,14 +9,26 @@
 
 static uint8_t snes_io_read(struct SNES_Core* snes, uint16_t addr)
 {
+    uint8_t value = 0xFF;
+
     switch (addr)
     {
+        case 0x2140: // APUIO0
+            snes_log("[APUIO0] WARNING - ignoring read\n");
+            value = rand();
+            break;
+
+        case 0x2141: // APUIO1
+            snes_log("[APUIO1] WARNING - ignoring read\n");
+            value = rand();
+            break;
+
         default:
             snes_log_fatal("[IO] unhandled read! addr: 0x%04X\n", addr);
             break;
     }
 
-    return 0xFF;
+    return value;
 }
 
 static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
@@ -97,13 +110,13 @@ uint8_t snes_cpu_read8(struct SNES_Core* snes, uint32_t addr)
                     break;
 
                 case 0x8000 ... 0xFFFF: // 32k rom
-                    data = snes->rom[(addr & 0x3FFF) + (0x4000 * bank)];
+                    data = snes->rom[(addr & 0x7FFF) + (0x8000 * bank)];
                     break;
             }
             break;
 
         case 0x40 ... 0x7C: // rom
-            data = snes->rom[(addr & 0x3FFF) + (0x4000 * bank)];
+            data = snes->rom[(addr & 0x7FFF) + (0x8000 * bank)];
             break;
 
         case 0x7D: // sram

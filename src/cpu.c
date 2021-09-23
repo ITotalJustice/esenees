@@ -31,12 +31,17 @@ bool snes_cpu_init(struct SNES_Core* snes)
 {
     // todo: setup default values of registers!
     memset(&snes->cpu, 0, sizeof(snes->cpu));
-    REG_PC = 0x8000; // im guessing this
+    // fetch from reset vector
+    REG_PC = snes_cpu_read16(snes, 0xFFFC);
+    // below are taken from bsnes-plus
     REG_SP = 0x01FF;
     FLAG_E = true;
     FLAG_M = true;
     FLAG_X = true;
     FLAG_I = true;
+
+    snes_log("initial pc: 0x%04X\n", REG_PC);
+
     return true;
 }
 
@@ -50,6 +55,18 @@ static void snes_set_status_flags(struct SNES_Core* snes, uint8_t value)
     FLAG_M = is_bit_set(5, value);
     FLAG_V = is_bit_set(6, value);
     FLAG_N = is_bit_set(7, value);
+
+    // note sure if this is correct...
+    // if (FLAG_M)
+    // {
+    //     REG_A &= 0xFF;
+    // }
+
+    // if (FLAG_X)
+    // {
+    //     REG_X &= 0xFF;
+    //     REG_Y &= 0xFF;
+    // }
 }
 
 static uint8_t snes_get_status_flags(const struct SNES_Core* snes)
@@ -422,6 +439,29 @@ static void SBC(struct SNES_Core* snes)
     snes_log("[SBC] V: %u C: %u N: %u Z: %u REG_A: 0x%02X\n", FLAG_V, FLAG_C, FLAG_N, FLAG_Z, REG_A);
 }
 
+// compare accumulator with memory
+static void CMP(struct SNES_Core* snes)
+{
+    if (FLAG_M)
+    {
+        const uint8_t value = snes_cpu_read8(snes, snes->cpu.oprand);
+        const uint8_t result = REG_A - value;
+
+        FLAG_C = REG_A >= value;
+        FLAG_N = is_bit_set(7, result);
+        FLAG_Z = result == 0;
+    }
+    else
+    {
+        const uint16_t value = snes_cpu_read16(snes, snes->cpu.oprand);
+        const uint16_t result = REG_A - value;
+
+        FLAG_C = REG_A >= value;
+        FLAG_N = is_bit_set(15, result);
+        FLAG_Z = result == 0;
+    }
+}
+
 // decrement REG_A
 static void DEA(struct SNES_Core* snes)
 {
@@ -476,7 +516,16 @@ static void DEY(struct SNES_Core* snes)
     }
 }
 
-// branch if negative clear flag
+// branch if negative flag set
+static void BMI(struct SNES_Core* snes)
+{
+    if (FLAG_N)
+    {
+        REG_PC += (int8_t)snes->cpu.oprand;
+    }
+}
+
+// branch if negative flag clear
 static void BPL(struct SNES_Core* snes)
 {
     if (!FLAG_N)
@@ -485,12 +534,28 @@ static void BPL(struct SNES_Core* snes)
     }
 }
 
-//
+// branch if zero flag clear
+static void BNE(struct SNES_Core* snes)
+{
+    if (!FLAG_Z)
+    {
+        REG_PC += (int8_t)snes->cpu.oprand;
+    }
+}
+
+// push pc to stack then set pc (jmp)
 static void JSR(struct SNES_Core* snes)
 {
     push16(snes, REG_PC);
     REG_PC = snes->cpu.oprand;
     snes_log("[JSR] jump to 0x%04X\n", REG_PC);
+}
+
+// pull set status flags by byte from stack
+static void PHP(struct SNES_Core* snes)
+{
+    const uint8_t value = pop8(snes);
+    snes_set_status_flags(snes, value);
 }
 
 void snes_cpu_run(struct SNES_Core* snes)
@@ -499,6 +564,7 @@ void snes_cpu_run(struct SNES_Core* snes)
 
     switch (opcode)
     {
+        case 0x08: implied(snes);           PHP(snes); break;
         case 0x10: relative(snes);          BPL(snes); break;
         case 0x18: implied(snes);           CLC(snes); break;
         case 0x1B: implied(snes);           TCS(snes); break;
@@ -520,6 +586,8 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0xAA: implied(snes);           TAX(snes); break;
         case 0xC2: immediate8(snes);        REP(snes); break;
         case 0xCA: implied(snes);           DEX(snes); break;
+        case 0xCD: absolute(snes);          CMP(snes); break;
+        case 0xD0: relative(snes);          BNE(snes); break;
         case 0xE2: immediate8(snes);        SEP(snes); break;
         case 0xE9: immediateA(snes);        SBC(snes); break;
         case 0xF8: implied(snes);           SED(snes); break;

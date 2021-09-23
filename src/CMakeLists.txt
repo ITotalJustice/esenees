@@ -17,7 +17,11 @@ add_library(libsnes
 
 
 target_include_directories(libsnes PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(libsnes PRIVATE m)
+
+# don't link against math on windows
+if (NOT WIN32)
+    target_link_libraries(libsnes PRIVATE m)
+endif()
 
 # (C)flags for each compiler
 # Werror is disabled atm because it's very annoying early into a project
