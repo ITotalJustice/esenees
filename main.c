@@ -4,7 +4,7 @@
 #include <stddef.h>
 
 static struct SNES_Core snes = {0};
-static uint8_t rom[0x80000] = {0};
+static uint8_t rom[1024 * 1024 * 4] = {0};
 static size_t rom_size = 0;
 
 int main(int argc, char** argv)

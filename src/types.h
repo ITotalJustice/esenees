@@ -151,6 +151,7 @@ struct SNES_Mem
     struct SNES_INIDISP INIDISP;
     uint8_t HDMAEN; // hdma channel(s) enable
     uint8_t MDMAEN; // general dma channel(s)
+    uint8_t MEMSEL; // memory-2 waitstate control
 
     // last value placed on the data bus
     uint8_t open_bus;

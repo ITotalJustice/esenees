@@ -14,12 +14,12 @@ static uint8_t snes_io_read(struct SNES_Core* snes, uint16_t addr)
     switch (addr)
     {
         case 0x2140: // APUIO0
-            snes_log("[APUIO0] WARNING - ignoring read\n");
+            // snes_log("[APUIO0] WARNING - ignoring read\n");
             value = rand();
             break;
 
         case 0x2141: // APUIO1
-            snes_log("[APUIO1] WARNING - ignoring read\n");
+            // snes_log("[APUIO1] WARNING - ignoring read\n");
             value = rand();
             break;
 
@@ -80,6 +80,10 @@ static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
             // be enabled via this write!
             break;
 
+        case 0x420D: // MEMSEL
+            snes->mem.MEMSEL = value & 0x1;
+            break;
+
         default:
             snes_log_fatal("[IO] unhandled write! addr: 0x%04X value: 0x%02X\n", addr, value);
             break;
@@ -110,13 +114,13 @@ uint8_t snes_cpu_read8(struct SNES_Core* snes, uint32_t addr)
                     break;
 
                 case 0x8000 ... 0xFFFF: // 32k rom
-                    data = snes->rom[(addr & 0x7FFF) + (0x8000 * bank)];
+                    data = snes->rom[(addr & 0x7FFF) + (0x8000 * (bank & 0x7F))];
                     break;
             }
             break;
 
         case 0x40 ... 0x7C: // rom
-            data = snes->rom[(addr & 0x7FFF) + (0x8000 * bank)];
+            data = snes->rom[(addr & 0x7FFF) + (0x8000 * (bank & 0x7F))];
             break;
 
         case 0x7D: // sram

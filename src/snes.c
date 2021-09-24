@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <math.h>
+
 
 static struct SNES_Header snes_get_header(const uint8_t* rom, size_t size)
 {
@@ -45,8 +45,8 @@ bool snes_loadrom(struct SNES_Core* snes, const uint8_t* rom, size_t rom_size)
     // todo: fix this, getting the wrong size...
     // metroid is reported as 4096 KiB, but file size is 3 MiB
     // however it works for SMW ???
-    snes->cart.rom_size = pow(2, header.rom_size);
-    snes->cart.ram_size = pow(2, header.ram_size);
+    snes->cart.rom_size = 1 << header.rom_size;
+    snes->cart.ram_size = 1 << header.ram_size;
 
     snes_log("SNES header:\n");
     snes_log("\ttitle: %s\n", title.title);

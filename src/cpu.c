@@ -99,7 +99,7 @@ static void absolute(struct SNES_Core* snes)
 {
     snes->cpu.oprand = snes_cpu_read16(snes, addr(REG_PBR, REG_PC));
     snes->cpu.oprand = addr(REG_DBR, snes->cpu.oprand);
-    snes_log("[ABS] oprand effective address: 0x%06X\n", snes->cpu.oprand);
+    // snes_log("[ABS] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 
     REG_PC += 2;
 }
@@ -108,7 +108,7 @@ static void absolute_long(struct SNES_Core* snes)
 {
     snes->cpu.oprand = snes_cpu_read24(snes, addr(REG_PBR, REG_PC));
     // snes->cpu.oprand = addr(REG_DBR, snes->cpu.oprand);
-    snes_log("[ABS LONG] oprand effective address: 0x%06X\n", snes->cpu.oprand);
+    // snes_log("[ABS LONG] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 
     REG_PC += 3;
 }
@@ -116,7 +116,7 @@ static void absolute_long(struct SNES_Core* snes)
 static void absolute_long_x(struct SNES_Core* snes)
 {
     snes->cpu.oprand = snes_cpu_read24(snes, addr(REG_PBR, REG_PC)) + REG_X;
-    snes_log("[ABS LONG X] oprand effective address: 0x%06X\n", snes->cpu.oprand);
+    // snes_log("[ABS LONG X] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 
     REG_PC += 3;
 }
@@ -124,14 +124,14 @@ static void absolute_long_x(struct SNES_Core* snes)
 static void immediate8(struct SNES_Core* snes)
 {
     snes->cpu.oprand = addr(REG_PBR, REG_PC++);
-    snes_log("[IMM8] oprand effective address: 0x%06X\n", snes->cpu.oprand);
+    // snes_log("[IMM8] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 }
 
 static void immediate16(struct SNES_Core* snes)
 {
     snes->cpu.oprand = addr(REG_PBR, REG_PC);
     REG_PC += 2;
-    snes_log("[IMM16] oprand effective address: 0x%06X\n", snes->cpu.oprand);
+    // snes_log("[IMM16] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 }
 
 // for instructions that use A, such as LDA
@@ -146,7 +146,7 @@ static void immediateA(struct SNES_Core* snes)
         immediate16(snes);
     }
 
-    snes_log("[IMM8] oprand effective address: 0x%06X\n", snes->cpu.oprand);
+    // snes_log("[IMM8] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 }
 
 // for instructions that use X/Y, such as LDA
@@ -161,14 +161,21 @@ static void immediateX(struct SNES_Core* snes)
         immediate16(snes);
     }
 
-    snes_log("[IMM8] oprand effective address: 0x%06X\n", snes->cpu.oprand);
+    // snes_log("[IMM8] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 }
 
 static void relative(struct SNES_Core* snes)
 {
     snes->cpu.oprand = snes_cpu_read8(snes, addr(REG_PBR, REG_PC++));
 
-    snes_log("[REL] value: %d result: 0x%02X\n", (int8_t)snes->cpu.oprand, REG_PC + (int8_t)snes->cpu.oprand);
+    // snes_log("[REL] value: %d result: 0x%02X\n", (int8_t)snes->cpu.oprand, REG_PC + (int8_t)snes->cpu.oprand);
+}
+
+static void direct_page(struct SNES_Core* snes)
+{
+    snes->cpu.oprand = snes_cpu_read8(snes, addr(REG_PBR, REG_PC++)) + REG_D;
+    snes->cpu.oprand &= 0xFFFF;
+    snes_log("[DP] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 }
 
 // for debugging, basically crash at pc and log stuff
@@ -197,12 +204,25 @@ static void push16(struct SNES_Core* snes, uint16_t value)
     push8(snes, (value >> 0) & 0xFF);
 }
 
-static uint16_t pop16(struct SNES_Core* snes, uint16_t value)
+static uint16_t pop16(struct SNES_Core* snes)
 {
     const uint16_t lo = pop8(snes);
     const uint16_t hi = pop8(snes);
 
     return (hi << 8) | lo;
+}
+
+// helper for setting flags NZ
+static void set_nz_8(struct SNES_Core* snes, uint8_t value)
+{
+    FLAG_N = is_bit_set(7, value);
+    FLAG_Z = value == 0;
+}
+
+static void set_nz_16(struct SNES_Core* snes, uint16_t value)
+{
+    FLAG_N = is_bit_set(15, value);
+    FLAG_Z = value == 0;
 }
 
 // set carry flag
@@ -235,14 +255,12 @@ static void LDX(struct SNES_Core* snes)
     if (FLAG_X)
     {
         REG_X = snes_cpu_read8(snes, snes->cpu.oprand);
-        FLAG_N = is_bit_set(7, REG_X);
-        FLAG_Z = REG_X == 0;
+        set_nz_8(snes, REG_X);
     }
     else
     {
         REG_X = snes_cpu_read16(snes, snes->cpu.oprand);
-        FLAG_N = is_bit_set(15, REG_X);
-        FLAG_Z = REG_X == 0;
+        set_nz_16(snes, REG_X);
     }
 }
 
@@ -252,14 +270,12 @@ static void LDY(struct SNES_Core* snes)
     if (FLAG_X)
     {
         REG_Y = snes_cpu_read8(snes, snes->cpu.oprand);
-        FLAG_N = is_bit_set(7, REG_Y);
-        FLAG_Z = REG_Y == 0;
+        set_nz_8(snes, REG_Y);
     }
     else
     {
         REG_Y = snes_cpu_read16(snes, snes->cpu.oprand);
-        FLAG_N = is_bit_set(15, REG_Y);
-        FLAG_Z = REG_Y == 0;
+        set_nz_16(snes, REG_Y);
     }
 }
 
@@ -269,14 +285,12 @@ static void LDA(struct SNES_Core* snes)
     if (FLAG_M)
     {
         REG_A = snes_cpu_read8(snes, snes->cpu.oprand);
-        FLAG_N = is_bit_set(7, REG_A);
-        FLAG_Z = REG_A == 0;
+        set_nz_8(snes, REG_A);
     }
     else
     {
         REG_A = snes_cpu_read16(snes, snes->cpu.oprand);
-        FLAG_N = is_bit_set(15, REG_A);
-        FLAG_Z = REG_A == 0;
+        set_nz_16(snes, REG_A);
     }
 }
 
@@ -329,89 +343,142 @@ static void SEP(struct SNES_Core* snes)
 // transfer accumulator to REG_X
 static void TAX(struct SNES_Core* snes)
 {
-    REG_X = REG_A;
-    FLAG_N = is_bit_set(15, REG_X);
-    FLAG_Z = REG_X == 0;
+    if (FLAG_X)
+    {
+        REG_X = REG_A & 0xFF;
+        set_nz_8(snes, REG_X);
+    }
+    else
+    {
+        REG_X = REG_A;
+        set_nz_16(snes, REG_X);
+    }
 }
 
 // transfer accumulator to REG_Y
 static void TAY(struct SNES_Core* snes)
 {
-    REG_Y = REG_A;
-    FLAG_N = is_bit_set(15, REG_Y);
-    FLAG_Z = REG_Y == 0;
+    if (FLAG_X)
+    {
+        REG_Y = REG_A & 0xFF;
+        set_nz_8(snes, REG_Y);
+    }
+    else
+    {
+        REG_Y = REG_A;
+        set_nz_16(snes, REG_Y);
+    }
 }
 
 // transfer REG_X to accumulator
 static void TXA(struct SNES_Core* snes)
 {
-    REG_A = REG_X;
-    FLAG_N = is_bit_set(15, REG_A);
-    FLAG_Z = REG_A == 0;
+    if (FLAG_M)
+    {
+        REG_A = REG_X & 0xFF;
+        set_nz_8(snes, REG_A);
+    }
+    else
+    {
+        REG_A = REG_X;
+        set_nz_16(snes, REG_A);
+    }
 }
 
 // transfer REG_X to stack pointer
 static void TXS(struct SNES_Core* snes)
 {
     REG_SP = REG_X;
-    FLAG_N = is_bit_set(15, REG_SP);
-    FLAG_Z = REG_SP == 0;
+    set_nz_16(snes, REG_SP);
 }
 
 // transfer REG_X to REG_Y
 static void TXY(struct SNES_Core* snes)
 {
     REG_Y = REG_X;
-    FLAG_N = is_bit_set(15, REG_Y);
-    FLAG_Z = REG_Y == 0;
+
+    if (FLAG_X)
+    {
+        set_nz_8(snes, REG_Y);
+    }
+    else
+    {
+        set_nz_16(snes, REG_Y);
+    }
 }
 
 // transfer REG_Y to accumulator
 static void TYA(struct SNES_Core* snes)
 {
-    REG_A = REG_Y;
-    FLAG_N = is_bit_set(15, REG_A);
-    FLAG_Z = REG_A == 0;
+    if (FLAG_M)
+    {
+        REG_A = REG_Y & 0xFF;
+        set_nz_8(snes, REG_A);
+    }
+    else
+    {
+        REG_A = REG_Y;
+        set_nz_16(snes, REG_A);
+    }
 }
 
 // transfer REG_Y to REG_X
 static void TYX(struct SNES_Core* snes)
 {
     REG_X = REG_Y;
-    FLAG_N = is_bit_set(15, REG_X);
-    FLAG_Z = REG_X == 0;
+
+    if (FLAG_X)
+    {
+        set_nz_8(snes, REG_X);
+    }
+    else
+    {
+        set_nz_16(snes, REG_X);
+    }
 }
 
 // transfer accumulator to direct page register
 static void TCD(struct SNES_Core* snes)
 {
     REG_D = REG_A;
-    FLAG_N = is_bit_set(15, REG_D);
-    FLAG_Z = REG_D == 0;
+    set_nz_16(snes, REG_D);
 }
 
 // transfer accumulator to stack pointer
 static void TCS(struct SNES_Core* snes)
 {
     REG_SP = REG_A;
-    FLAG_N = is_bit_set(15, REG_SP);
-    FLAG_Z = REG_SP == 0;
+    set_nz_16(snes, REG_SP);
 }
 
 // transfer stack pointer to accumulator
 static void TSC(struct SNES_Core* snes)
 {
-    REG_A = REG_SP;
-    FLAG_N = is_bit_set(15, REG_A);
-    FLAG_Z = REG_A == 0;
+    if (FLAG_M)
+    {
+        REG_A = REG_SP & 0xFF;
+        set_nz_8(snes, REG_A);
+    }
+    else
+    {
+        REG_A = REG_SP;
+        set_nz_16(snes, REG_A);
+    }
 }
 
 // transfer direct page register to accumulator
 static void TDC(struct SNES_Core* snes)
 {
-    REG_A = REG_D;
-    FLAG_N = is_bit_set(15, REG_A);
-    FLAG_Z = REG_A == 0;
+    if (FLAG_M)
+    {
+        REG_A = REG_D & 0xFF;
+        set_nz_8(snes, REG_A);
+    }
+    else
+    {
+        REG_A = REG_D;
+        set_nz_16(snes, REG_A);
+    }
 }
 
 // subtract with carry
@@ -430,13 +497,12 @@ static void SBC(struct SNES_Core* snes)
         // might need to invert the result as copied from nes ADC()
         FLAG_V = ((REG_A ^ result) & (value ^ result) & 0x8000) > 0;
         FLAG_C = REG_A >= value;
-        FLAG_N = is_bit_set(15, result);
-        FLAG_Z = result == 0;
+        set_nz_16(snes, result);
 
         REG_A = result;
     }
 
-    snes_log("[SBC] V: %u C: %u N: %u Z: %u REG_A: 0x%02X\n", FLAG_V, FLAG_C, FLAG_N, FLAG_Z, REG_A);
+    // snes_log("[SBC] V: %u C: %u N: %u Z: %u REG_A: 0x%02X\n", FLAG_V, FLAG_C, FLAG_N, FLAG_Z, REG_A);
 }
 
 // compare accumulator with memory
@@ -448,8 +514,7 @@ static void CMP(struct SNES_Core* snes)
         const uint8_t result = REG_A - value;
 
         FLAG_C = REG_A >= value;
-        FLAG_N = is_bit_set(7, result);
-        FLAG_Z = result == 0;
+        set_nz_8(snes, result);
     }
     else
     {
@@ -457,8 +522,7 @@ static void CMP(struct SNES_Core* snes)
         const uint16_t result = REG_A - value;
 
         FLAG_C = REG_A >= value;
-        FLAG_N = is_bit_set(15, result);
-        FLAG_Z = result == 0;
+        set_nz_16(snes, result);
     }
 }
 
@@ -470,13 +534,11 @@ static void DEA(struct SNES_Core* snes)
     if (FLAG_M)
     {
         REG_A &= 0xFF;
-        FLAG_N = is_bit_set(7, REG_A);
-        FLAG_Z = REG_A == 0;
+        set_nz_8(snes, REG_A);
     }
     else
     {
-        FLAG_N = is_bit_set(15, REG_A);
-        FLAG_Z = REG_A == 0;
+        set_nz_16(snes, REG_A);
     }
 }
 
@@ -488,13 +550,11 @@ static void DEX(struct SNES_Core* snes)
     if (FLAG_X)
     {
         REG_X &= 0xFF;
-        FLAG_N = is_bit_set(7, REG_X);
-        FLAG_Z = REG_X == 0;
+        set_nz_8(snes, REG_X);
     }
     else
     {
-        FLAG_N = is_bit_set(15, REG_X);
-        FLAG_Z = REG_X == 0;
+        set_nz_16(snes, REG_X);
     }
 }
 
@@ -506,13 +566,11 @@ static void DEY(struct SNES_Core* snes)
     if (FLAG_X)
     {
         REG_Y &= 0xFF;
-        FLAG_N = is_bit_set(7, REG_Y);
-        FLAG_Z = REG_Y == 0;
+        set_nz_8(snes, REG_Y);
     }
     else
     {
-        FLAG_N = is_bit_set(15, REG_Y);
-        FLAG_Z = REG_Y == 0;
+        set_nz_16(snes, REG_Y);
     }
 }
 
@@ -543,6 +601,12 @@ static void BNE(struct SNES_Core* snes)
     }
 }
 
+// branch always
+static void BRA(struct SNES_Core* snes)
+{
+    REG_PC += (int8_t)snes->cpu.oprand;
+}
+
 // push pc to stack then set pc (jmp)
 static void JSR(struct SNES_Core* snes)
 {
@@ -551,11 +615,122 @@ static void JSR(struct SNES_Core* snes)
     snes_log("[JSR] jump to 0x%04X\n", REG_PC);
 }
 
-// pull set status flags by byte from stack
-static void PHP(struct SNES_Core* snes)
+// jump long
+static void JML(struct SNES_Core* snes)
+{
+    REG_PBR = snes->cpu.oprand >> 16;
+    REG_PC = snes->cpu.oprand & 0xFFFF;
+    snes_log("[JML] jump to %02X:%04X\n", REG_PBR, REG_PC);
+}
+
+// pull status flags by byte from stack
+static void PLP(struct SNES_Core* snes)
 {
     const uint8_t value = pop8(snes);
     snes_set_status_flags(snes, value);
+    set_nz_8(snes, value);
+}
+
+// pull data bank register from stack
+static void PLB(struct SNES_Core* snes)
+{
+    REG_DBR = pop8(snes);
+    set_nz_8(snes, REG_DBR);
+}
+
+// pull direct page register from stack
+static void PLD(struct SNES_Core* snes)
+{
+    REG_D = pop16(snes);
+    set_nz_16(snes, REG_D);
+}
+
+// pull REG_X from stack
+static void PLX(struct SNES_Core* snes)
+{
+    if (FLAG_X)
+    {
+        REG_X = pop8(snes);
+        set_nz_8(snes, REG_X);
+    }
+    else
+    {
+        REG_X = pop16(snes);
+        set_nz_16(snes, REG_X);
+    }
+}
+
+// pull REG_Y from stack
+static void PLY(struct SNES_Core* snes)
+{
+    if (FLAG_X)
+    {
+        REG_Y = pop8(snes);
+        set_nz_8(snes, REG_Y);
+    }
+    else
+    {
+        REG_Y = pop16(snes);
+        set_nz_16(snes, REG_Y);
+    }
+}
+
+// push status flags to stack
+static void PHP(struct SNES_Core* snes)
+{
+    const uint8_t value = snes_get_status_flags(snes);
+    push8(snes, value);
+}
+
+// push accumulator to stack
+static void PHA(struct SNES_Core* snes)
+{
+    if (FLAG_M)
+    {
+        push8(snes, REG_A);
+    }
+    else
+    {
+        push16(snes, REG_A);
+    }
+}
+
+// push REG_X to stack
+static void PHX(struct SNES_Core* snes)
+{
+    if (FLAG_X)
+    {
+        push8(snes, REG_X);
+    }
+    else
+    {
+        push16(snes, REG_X);
+    }
+}
+
+// push REG_Y to stack
+static void PHY(struct SNES_Core* snes)
+{
+    if (FLAG_X)
+    {
+        push8(snes, REG_Y);
+    }
+    else
+    {
+        push16(snes, REG_Y);
+    }
+}
+
+// push direct page register to stack
+static void PHD(struct SNES_Core* snes)
+{
+    push16(snes, REG_D);
+}
+
+// push program bank to stack
+static void PHK(struct SNES_Core* snes)
+{
+    push8(snes, REG_PBR);
 }
 
 void snes_cpu_run(struct SNES_Core* snes)
@@ -570,13 +745,19 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0x1B: implied(snes);           TCS(snes); break;
         case 0x20: absolute(snes);          JSR(snes); break;
         case 0x38: implied(snes);           SEC(snes); break;
+        case 0x48: implied(snes);           PHA(snes); break;
+        case 0x4B: implied(snes);           PHK(snes); break;
         case 0x5B: implied(snes);           TCD(snes); break;
+        case 0x5C: absolute_long(snes);     JML(snes); break;
         case 0x78: implied(snes);           SEI(snes); break;
         case 0x7B: implied(snes);           TDC(snes); break;
+        case 0x80: relative(snes);          BRA(snes); break;
+        case 0x85: direct_page(snes);       STA(snes); break;
         case 0x88: implied(snes);           DEY(snes); break;
         case 0x8D: absolute(snes);          STA(snes); break;
         case 0x8F: absolute_long(snes);     STA(snes); break;
         case 0x98: implied(snes);           TYA(snes); break;
+        case 0x9A: implied(snes);           TXS(snes); break;
         case 0x9C: absolute(snes);          STZ(snes); break;
         case 0x9F: absolute_long_x(snes);   STA(snes); break;
         case 0xA0: immediateX(snes);        LDY(snes); break;
@@ -584,6 +765,8 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0xA8: implied(snes);           TAY(snes); break;
         case 0xA9: immediateA(snes);        LDA(snes); break;
         case 0xAA: implied(snes);           TAX(snes); break;
+        case 0xAB: implied(snes);           PLB(snes); break;
+        case 0xAD: absolute(snes);          LDA(snes); break;
         case 0xC2: immediate8(snes);        REP(snes); break;
         case 0xCA: implied(snes);           DEX(snes); break;
         case 0xCD: absolute(snes);          CMP(snes); break;
