@@ -167,6 +167,10 @@ struct SNES_Core
 
     const uint8_t* rom;
     size_t rom_size;
+
+    // for testing
+    size_t ticks;
+    uint8_t opcode;
 };
 
 #ifdef __cplusplus
