@@ -3,5 +3,3 @@ compile_commands.*
 roms
 *.sfc
 .cache
-/.vs
-/CMakeSettings.json
