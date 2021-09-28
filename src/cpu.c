@@ -3,6 +3,8 @@
 #include "types.h"
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+#include <assert.h>
 
 
 // registers
@@ -212,6 +214,22 @@ static void direct_page_y(struct SNES_Core* snes)
     // snes_log("[DP Y] oprand effective address: 0x%06X\n", snes->cpu.oprand);
 }
 
+static void dp_indirect(struct SNES_Core* snes)
+{
+    // base + REG_D(indirect)
+    const uint16_t base = snes_cpu_read8(snes, addr(REG_PBR, REG_PC++)) + REG_D;
+    snes->cpu.oprand = snes_cpu_read16(snes, base);
+    // snes_log_fatal("[DP INDIRECT] oprand effective address: 0x%06X 0x%04X M: %u\n", snes->cpu.oprand, snes_cpu_read8(snes, snes->cpu.oprand), FLAG_M);
+}
+
+static void dp_ind_long(struct SNES_Core* snes)
+{
+    // base + REG_D(indirect)
+    const uint16_t base = snes_cpu_read8(snes, addr(REG_PBR, REG_PC++)) + REG_D;
+    snes->cpu.oprand = snes_cpu_read24(snes, base);
+    // snes_log_fatal("[DP IND LONG] oprand effective address: 0x%06X 0x%04X M: %u\n", snes->cpu.oprand, snes_cpu_read8(snes, snes->cpu.oprand), FLAG_M);
+}
+
 static void dp_ind_long_y(struct SNES_Core* snes)
 {
     // base + REG_D(indirect)
@@ -225,10 +243,12 @@ static void breakpoint(const struct SNES_Core* snes, int pc)
 {
     if (((REG_PBR << 16) | REG_PC) == pc)
     {
-        snes_log_fatal(
+        snes_log(
             "[BP] PC: 0x%04X OP: 0x%02X oprand: 0x%06X REG_PBR: 0x%02X REG_A: 0x%04X S: 0x%04X X: 0x%04X Y: 0x%04X P: 0x%02X ticks: %zu\n",
             REG_PC, snes->opcode, snes->cpu.oprand, REG_PBR, REG_A, REG_SP, REG_X, REG_Y, snes_get_status_flags(snes), snes->ticks
         );
+
+        getchar();
     }
 }
 
@@ -600,13 +620,16 @@ static void TDC(struct SNES_Core* snes)
 // add with carry
 static void ADC(struct SNES_Core* snes)
 {
+    assert(FLAG_D == false && "decimal mode not impl\n");
+
     if (FLAG_M)
     {
+        const uint8_t a = REG_A;
         const uint8_t value = snes_cpu_read8(snes, snes->cpu.oprand) + FLAG_C;
-        const uint8_t result = REG_A + value;
+        const uint8_t result = a + value;
 
-        FLAG_V = ((REG_A ^ result) & (value ^ result) & 0x80) > 0;
-        FLAG_C = (REG_A + value) > 0xFFFF;
+        FLAG_V = ((a ^ result) & (value ^ result) & 0x80) > 0;
+        FLAG_C = (a + value) > 0xFF;
         set_nz_8(snes, result);
 
         set_lo_byte(&REG_A, result);
@@ -627,6 +650,8 @@ static void ADC(struct SNES_Core* snes)
 // subtract with carry
 static void SBC(struct SNES_Core* snes)
 {
+    assert(FLAG_D == false && "decimal mode not impl\n");
+
     if (FLAG_M)
     {
         snes_log_fatal("SBC 8-bit REG_A not impl\n");
@@ -654,10 +679,11 @@ static void CMP(struct SNES_Core* snes)
 {
     if (FLAG_M)
     {
+        const uint8_t a = REG_A;
         const uint8_t value = snes_cpu_read8(snes, snes->cpu.oprand);
-        const uint8_t result = REG_A - value;
+        const uint8_t result = a - value;
 
-        FLAG_C = REG_A >= value;
+        FLAG_C = a >= value;
         set_nz_8(snes, result);
     }
     else
@@ -995,6 +1021,13 @@ static void JSL(struct SNES_Core* snes)
     snes_log("[JSL] jump to %02X:%04X\n", REG_PBR, REG_PC);
 }
 
+// jump
+static void JMP(struct SNES_Core* snes)
+{
+    REG_PC = snes->cpu.oprand;
+    snes_log("[JMP] jump to %02X:%04X\n", REG_PBR, REG_PC);
+}
+
 // jump long
 static void JML(struct SNES_Core* snes)
 {
@@ -1031,6 +1064,8 @@ static void PLB(struct SNES_Core* snes)
 {
     REG_DBR = pop8(snes);
     set_nz_8(snes, REG_DBR);
+
+    assert(REG_DBR == 0x00);
 }
 
 // pull direct page register from stack
@@ -1068,6 +1103,12 @@ static void PLY(struct SNES_Core* snes)
         REG_Y = pop16(snes);
         set_nz_16(snes, REG_Y);
     }
+}
+
+// push data bank register
+static void PHB(struct SNES_Core* snes)
+{
+    push8(snes, REG_DBR);
 }
 
 // push status flags to stack
@@ -1133,6 +1174,14 @@ static void RTS(struct SNES_Core* snes)
 {
     REG_PC = pop16(snes) + 1;
     snes_log("[RTS] REG_PC: 0x%04X op: 0x%02X\n", REG_PC, snes_cpu_read8(snes, REG_PC));
+}
+
+// return from subroutine long
+static void RTL(struct SNES_Core* snes)
+{
+    REG_PC = pop16(snes) + 1;
+    REG_PBR = pop8(snes);
+    snes_log("[RTL] %02X:%04X op: 0x%02X\n", REG_PBR, REG_PC, snes_cpu_read8(snes, REG_PC));
 }
 
 // increment memory
@@ -1294,9 +1343,34 @@ static void LSRA(struct SNES_Core* snes)
     }
 }
 
+static void handle_interrupt(struct SNES_Core* snes, uint16_t vector)
+{
+    push8(snes, REG_PBR);
+    push16(snes, REG_PC);
+    push8(snes, snes_get_status_flags(snes));
+    REG_PC = snes_cpu_read16(snes, vector);
+    REG_PBR = 0x00;
+    FLAG_I = true; // disable interrupts
+}
+
+static void on_irq(struct SNES_Core* snes)
+{
+    handle_interrupt(snes, 0xFFEE);
+}
+
+static void on_nmi(struct SNES_Core* snes)
+{
+    handle_interrupt(snes, 0xFFEA);
+}
+
 void snes_cpu_run(struct SNES_Core* snes)
 {
-    breakpoint(snes, 0x01ad10);
+    if (FLAG_I == false)
+    {
+
+    }
+
+    breakpoint(snes, 0x8075);
 
     const uint8_t opcode = snes_cpu_read8(snes, addr(REG_PBR, REG_PC++));
     snes->opcode = opcode;
@@ -1306,6 +1380,7 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0x01: direct_page_x(snes);     ORA(snes); break;
         case 0x05: direct_page(snes);       ORA(snes); break;
         case 0x06: direct_page(snes);       ASL(snes); break;
+        case 0x07: dp_ind_long(snes);       ORA(snes); break;
         case 0x08: implied(snes);           PHP(snes); break;
         case 0x09: immediateM(snes);        ORA(snes); break;
         case 0x0A: implied(snes);           ASLA(snes); break;
@@ -1350,6 +1425,7 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0x49: immediateM(snes);        EOR(snes); break;
         case 0x4A: implied(snes);           LSRA(snes); break;
         case 0x4B: implied(snes);           PHK(snes); break;
+        case 0x4C: absolute(snes);          JMP(snes); break;
         case 0x4D: absolute(snes);          EOR(snes); break;
         case 0x4E: direct_page_x(snes);     LSR(snes); break;
         case 0x4F: absolute_long(snes);     EOR(snes); break;
@@ -1369,6 +1445,7 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0x68: implied(snes);           PLA(snes); break;
         case 0x69: immediateM(snes);        ADC(snes); break;
         case 0x6A: implied(snes);           RORA(snes); break;
+        case 0x6B: implied(snes);           RTL(snes); break;
         case 0x6D: absolute(snes);          ADC(snes); break;
         case 0x6E: absolute(snes);          ROR(snes); break;
         case 0x6F: absolute_long(snes);     ADC(snes); break;
@@ -1382,12 +1459,14 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0x7E: absolute_x(snes);        ROR(snes); break;
         case 0x80: relative(snes);          BRA(snes); break;
         // case 0x81: direct_page_x(snes);     STA(snes); break;
+        case 0xB2: dp_indirect(snes);       LDA(snes); break;
         case 0x84: direct_page(snes);       STY(snes); break;
         case 0x85: direct_page(snes);       STA(snes); break;
         case 0x86: direct_page(snes);       STX(snes); break;
         // case 0x87: direct_page_long(snes);  STA(snes); break;
         case 0x88: implied(snes);           DEY(snes); break;
         case 0x8A: implied(snes);           TXA(snes); break;
+        case 0x8B: implied(snes);           PHB(snes); break;
         case 0x8C: absolute(snes);          STY(snes); break;
         case 0x8D: absolute(snes);          STA(snes); break;
         case 0x8E: absolute(snes);          STX(snes); break;
@@ -1396,6 +1475,7 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0x94: direct_page_x(snes);     STY(snes); break;
         case 0x95: direct_page_x(snes);     STA(snes); break;
         case 0x96: direct_page_y(snes);     STX(snes); break;
+        case 0x97: dp_ind_long_y(snes);     STA(snes); break;
         case 0x98: implied(snes);           TYA(snes); break;
         case 0x99: absolute_y(snes);        STA(snes); break;
         case 0x9A: implied(snes);           TXS(snes); break;
@@ -1409,6 +1489,7 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0xA4: direct_page(snes);       LDY(snes); break;
         case 0xA5: direct_page(snes);       LDA(snes); break;
         case 0xA6: direct_page(snes);       LDX(snes); break;
+        case 0xA7: dp_ind_long(snes);       LDA(snes); break;
         case 0xA8: implied(snes);           TAY(snes); break;
         case 0xA9: immediateM(snes);        LDA(snes); break;
         case 0xAA: implied(snes);           TAX(snes); break;
@@ -1433,6 +1514,7 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0xC4: direct_page(snes);       CPY(snes); break;
         case 0xC6: direct_page(snes);       DEC(snes); break;
         case 0xC8: implied(snes);           INY(snes); break;
+        case 0xC9: immediateM(snes);        CMP(snes); break;
         case 0xCA: implied(snes);           DEX(snes); break;
         case 0xCC: absolute(snes);          CPY(snes); break;
         case 0xCD: absolute(snes);          CMP(snes); break;

@@ -48,16 +48,108 @@ static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
             snes_log("[OBSEL] WARNING - ignoring write: 0x%02X\n", value);
             break;
 
+        case 0x2102: // OAMADDL
+            snes_log("[OAMADDL] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2103: // OAMADDH
+            snes_log("[OAMADDH] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2106: // MOSAIC
+            snes_log("[MOSAIC] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2107: // BG1SC (BG tilemap addr reg BG1)
+            snes_log("[BG1SC] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2108: // BG2SC (BG tilemap addr reg BG2)
+            snes_log("[BG2SC] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2109: // BG3SC (BG tilemap addr reg BG3)
+            snes_log("[BG3SC] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x210A: // BG4SC (BG tilemap addr reg BG4)
+            snes_log("[BG4SC] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x210B: // BG12NBA (BG character addr reg BG1&2)
+            snes_log("[BG12NBA] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x210C: // BG34NBA (BG character addr reg BG3&4)
+            snes_log("[BG34NBA] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
         case 0x2115: // VMAIN
             snes_log("[VMAIN] WARNING - ignoring write: 0x%02X\n", value);
             break;
 
-        case 0x2116: // VMADDL
+        case 0x2116: // VMADDL (vram addr low)
             snes_log("[VMADDL] WARNING - ignoring write: 0x%02X\n", value);
             break;
 
-        case 0x2117: // VMADDH
+        case 0x2117: // VMADDH (vram addr high)
             snes_log("[VMADDH] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2118: // VMDATAL (vram data low)
+            snes_log("[VMDATAL] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2119: // VMDATAH (vram data high)
+            snes_log("[VMDATAH] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x211A: // M7SEL (mode 7 settings reg)
+            snes_log("[M7SEL] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2121: // CGADD (CGRAM addr)
+            snes_log("[CGADD] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2122: // CGDATA (CGRAM data)
+            snes_log("[CGDATA] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x212A: // WBGLOG (window mask logic reg BG)
+            snes_log("[WBGLOG] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x212B: // WOBJLOG (window mask logic reg OBJ)
+            snes_log("[WOBJLOG] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x212C: // TM (screen destination reg)
+            snes_log("[TM] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x212D: // TD (screen destination reg)
+            snes_log("[TD] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x212E: // TMW (window destination reg)
+            snes_log("[TMW] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x212F: // TSW (window destination reg)
+            snes_log("[TSW] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2131: // CGADSUB (colour math)
+            snes_log("[CGADSUB] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2132: // COLDATA (colour math)
+            snes_log("[COLDATA] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2133: // SETINI (screen mode select register)
+            snes_log("[SETINI] WARNING - ignoring write: 0x%02X\n", value);
             break;
 
         case 0x2140: // APUIO0

@@ -118,7 +118,7 @@ struct SNES_Cpu
     uint8_t PBR; // program bank register (bit 16-24 of addr)
     uint8_t DBR; // data bank register (bit 16-24 of addr)
 
-    // should this be a reg instead?
+    // flags
     bool flag_B; // break (emulation mode only)
     bool flag_N; // negative
     bool flag_V; // overflow
@@ -139,8 +139,38 @@ struct SNES_Ppu
 
 struct SNES_Apu
 {
-    //
-    uint8_t dummy;
+    // cpu register set
+    uint16_t PC;
+    uint8_t SP;
+    uint8_t A;
+    uint8_t X;
+    uint8_t Y;
+
+    // flags (PSW)
+    bool flag_N; // negative
+    bool flag_V; // overflow
+    bool flag_P; // direct page
+    bool flag_B; // break (unused - apart from BRK)
+    bool flag_H; // half carry
+    bool flag_I; // interrupt enabled (unused)
+    bool flag_Z; // zero
+    bool flag_C; // carry
+
+    // registers
+    uint8_t unk; // [W] undocumented
+    uint8_t dsp_addr; // [R/W]
+    uint8_t dsp_data; // [R/W]
+    uint8_t rm0; // [R/W]
+    uint8_t rm1; // [R/W]
+    uint8_t port_in[4]; // [W]
+    uint8_t port_out[4]; // [R]
+    uint8_t timer[3]; // [W]
+    uint8_t counter[3]; // [R]
+    bool timer_enable[3];
+    bool ipl_enable; // enabled reading from ipl at 0xFFC0+
+
+    // 64KiB ram
+    uint8_t ram[1024 * 64];
 };
 
 struct SNES_Mem
