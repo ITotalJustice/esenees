@@ -44,20 +44,36 @@ static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
             }
             break;
 
+        case 0x2101: // OBSEL
+            snes_log("[OBSEL] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2115: // VMAIN
+            snes_log("[VMAIN] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2116: // VMADDL
+            snes_log("[VMADDL] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
+        case 0x2117: // VMADDH
+            snes_log("[VMADDH] WARNING - ignoring write: 0x%02X\n", value);
+            break;
+
         case 0x2140: // APUIO0
-            snes_log("[APUIO0] WARNING - ignoring write: 0x%02X\n", value);
+            // snes_log("[APUIO0] WARNING - ignoring write: 0x%02X\n", value);
             break;
 
         case 0x2141: // APUIO1
-            snes_log("[APUIO1] WARNING - ignoring write: 0x%02X\n", value);
+            // snes_log("[APUIO1] WARNING - ignoring write: 0x%02X\n", value);
             break;
 
         case 0x2142: // APUIO2
-            snes_log("[APUIO2] WARNING - ignoring write: 0x%02X\n", value);
+            // snes_log("[APUIO2] WARNING - ignoring write: 0x%02X\n", value);
             break;
 
         case 0x2143: // APUIO3
-            snes_log("[APUIO3] WARNING - ignoring write: 0x%02X\n", value);
+            // snes_log("[APUIO3] WARNING - ignoring write: 0x%02X\n", value);
             break;
 
         case 0x4200: // NMITIMEN
@@ -70,7 +86,7 @@ static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
             snes->mem.MDMAEN = value;
             if (value)
             {
-                snes_log_fatal("[IO-MDMAEN] channel enabled! DMA needs to start: 0x%02X\n", value);
+                snes_log("[IO-MDMAEN] channel enabled! DMA needs to start: 0x%02X\n", value);
             }
             break;
 
@@ -82,6 +98,63 @@ static void snes_io_write(struct SNES_Core* snes, uint16_t addr, uint8_t value)
 
         case 0x420D: // MEMSEL
             snes->mem.MEMSEL = value & 0x1;
+            break;
+
+        case 0x4300 ... 0x437F:
+            switch (addr & 0xF)
+            {
+                case 0x0: // DMAPx
+                    snes_log("[DMAPx] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x1: // BBADx
+                    snes_log("[BBADx] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x2: // A1TxL
+                    snes_log("[A1TxL] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x3: // A1TxH
+                    snes_log("[A1TxH] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x4: // A1Bx
+                    snes_log("[A1Bx] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x5: // DASxL
+                    snes_log("[DASxL] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x6: // DASxH
+                    snes_log("[DASxH] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x7: // DASBx
+                    snes_log("[DASBx] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x8: // A2AxL
+                    snes_log("[A2AxL] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0x9: // A2AxH
+                    snes_log("[A2AxH] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0xA: // NTRLx
+                    snes_log("[NTRLx] WARNING - ignoring write: 0x%02X channel: %u\n", value, (addr >> 4) & 0xF);
+                    break;
+
+                case 0xB: // UNUSED (unused byte r/w)
+                    snes_log_fatal("unused byte write - addr: 0x%04X value: 0x%02X\n", addr, value);
+                    break;
+
+                case 0xC ... 0xF: // open bus
+                    snes_log_fatal("openbus write - addr: 0x%04X value: 0x%02X\n", addr, value);
+                    break;
+            }
             break;
 
         default:
