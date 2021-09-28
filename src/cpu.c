@@ -221,9 +221,9 @@ static void dp_ind_long_y(struct SNES_Core* snes)
 }
 
 // for debugging, basically crash at pc and log stuff
-static void breakpoint(const struct SNES_Core* snes, uint16_t pc)
+static void breakpoint(const struct SNES_Core* snes, int pc)
 {
-    if (REG_PC == pc)
+    if (((REG_PBR << 16) | REG_PC) == pc)
     {
         snes_log_fatal(
             "[BP] PC: 0x%04X OP: 0x%02X oprand: 0x%06X REG_PBR: 0x%02X REG_A: 0x%04X S: 0x%04X X: 0x%04X Y: 0x%04X P: 0x%02X ticks: %zu\n",
@@ -991,7 +991,8 @@ static void JSL(struct SNES_Core* snes)
     push8(snes, REG_PBR);
     push16(snes, REG_PC - 1);
     REG_PC = snes->cpu.oprand;
-    snes_log("[JSL] jump to %02X%04X\n", REG_PBR, REG_PC);
+    REG_PBR = snes->cpu.oprand >> 16;
+    snes_log("[JSL] jump to %02X:%04X\n", REG_PBR, REG_PC);
 }
 
 // jump long
@@ -1295,7 +1296,7 @@ static void LSRA(struct SNES_Core* snes)
 
 void snes_cpu_run(struct SNES_Core* snes)
 {
-    // breakpoint(snes, 0x9322);
+    breakpoint(snes, 0x01ad10);
 
     const uint8_t opcode = snes_cpu_read8(snes, addr(REG_PBR, REG_PC++));
     snes->opcode = opcode;
