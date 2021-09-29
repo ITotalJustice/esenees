@@ -47,7 +47,7 @@ bool snes_cpu_init(struct SNES_Core* snes)
     return true;
 }
 
-static void snes_set_status_flags(struct SNES_Core* snes, uint8_t value)
+static void set_status_flags(struct SNES_Core* snes, uint8_t value)
 {
     FLAG_C = is_bit_set(0, value);
     FLAG_Z = is_bit_set(1, value);
@@ -65,7 +65,7 @@ static void snes_set_status_flags(struct SNES_Core* snes, uint8_t value)
     }
 }
 
-static uint8_t snes_get_status_flags(const struct SNES_Core* snes)
+static uint8_t get_status_flags(const struct SNES_Core* snes)
 {
     uint8_t value = 0;
     value |= FLAG_C << 0;
@@ -245,7 +245,7 @@ static void breakpoint(const struct SNES_Core* snes, int pc)
     {
         snes_log(
             "[BP] PC: 0x%04X OP: 0x%02X oprand: 0x%06X REG_PBR: 0x%02X REG_A: 0x%04X S: 0x%04X X: 0x%04X Y: 0x%04X P: 0x%02X ticks: %zu\n",
-            REG_PC, snes->opcode, snes->cpu.oprand, REG_PBR, REG_A, REG_SP, REG_X, REG_Y, snes_get_status_flags(snes), snes->ticks
+            REG_PC, snes->opcode, snes->cpu.oprand, REG_PBR, REG_A, REG_SP, REG_X, REG_Y, get_status_flags(snes), snes->ticks
         );
 
         getchar();
@@ -464,16 +464,16 @@ static void XBA(struct SNES_Core* snes)
 static void REP(struct SNES_Core* snes)
 {
     const uint8_t value = ~snes_cpu_read8(snes, snes->cpu.oprand);
-    const uint8_t flags = snes_get_status_flags(snes);
-    snes_set_status_flags(snes, flags & value);
+    const uint8_t flags = get_status_flags(snes);
+    set_status_flags(snes, flags & value);
 }
 
 // set the bits specified in the oprand of the flags
 static void SEP(struct SNES_Core* snes)
 {
     const uint8_t value = snes_cpu_read8(snes, snes->cpu.oprand);
-    const uint8_t flags = snes_get_status_flags(snes);
-    snes_set_status_flags(snes, flags | value);
+    const uint8_t flags = get_status_flags(snes);
+    set_status_flags(snes, flags | value);
 }
 
 // transfer accumulator to REG_X
@@ -652,26 +652,31 @@ static void SBC(struct SNES_Core* snes)
 {
     assert(FLAG_D == false && "decimal mode not impl\n");
 
+    // NOTE: not sure if V is set correct, copied from my nes
+    // might need to invert the result as copied from nes ADC()
     if (FLAG_M)
     {
-        snes_log_fatal("SBC 8-bit REG_A not impl\n");
-        // set_lo_byte(&REG_A, result);
+        const uint8_t a = REG_A;
+        const uint8_t value = snes_cpu_read8(snes, snes->cpu.oprand) + !FLAG_C;
+        const uint8_t result = a - value;
+
+        FLAG_V = ((a ^ result) & (value ^ result) & 0x80) > 0;
+        FLAG_C = a >= value;
+        set_nz_8(snes, result);
+
+        set_lo_byte(&REG_A, result);
     }
     else
     {
         const uint16_t value = snes_cpu_read16(snes, snes->cpu.oprand) + !FLAG_C;
         const uint16_t result = REG_A - value;
 
-        // NOTE: not sure if V is set correct, copied from my nes
-        // might need to invert the result as copied from nes ADC()
         FLAG_V = ((REG_A ^ result) & (value ^ result) & 0x8000) > 0;
         FLAG_C = REG_A >= value;
         set_nz_16(snes, result);
 
         REG_A = result;
     }
-
-    // snes_log("[SBC] V: %u C: %u N: %u Z: %u REG_A: 0x%02X\n", FLAG_V, FLAG_C, FLAG_N, FLAG_Z, REG_A);
 }
 
 // compare accumulator with memory
@@ -858,20 +863,18 @@ static void ROL(struct SNES_Core* snes)
 // rotate left REG_A
 static void ROLA(struct SNES_Core* snes)
 {
-    const bool old_carry = FLAG_C;
     const uint16_t old_a = REG_A;
 
     if (FLAG_M)
     {
-        const uint8_t result = (REG_A << 1) | old_carry;
+        const uint8_t result = (REG_A << 1) | FLAG_C;
         set_lo_byte(&REG_A, result);
         FLAG_C = is_bit_set(7, old_a);
         set_nz_8(snes, REG_A);
     }
     else
     {
-        REG_A <<= 1;
-        REG_A |= old_carry;
+        REG_A = (REG_A << 1) | FLAG_C;
         FLAG_C = is_bit_set(15, old_a);
         set_nz_16(snes, REG_A);
     }
@@ -1040,7 +1043,7 @@ static void JML(struct SNES_Core* snes)
 static void PLP(struct SNES_Core* snes)
 {
     const uint8_t value = pop8(snes);
-    snes_set_status_flags(snes, value);
+    set_status_flags(snes, value);
 }
 
 // pull data bank register from stack
@@ -1114,7 +1117,7 @@ static void PHB(struct SNES_Core* snes)
 // push status flags to stack
 static void PHP(struct SNES_Core* snes)
 {
-    const uint8_t value = snes_get_status_flags(snes);
+    const uint8_t value = get_status_flags(snes);
     push8(snes, value);
 }
 
@@ -1347,7 +1350,7 @@ static void handle_interrupt(struct SNES_Core* snes, uint16_t vector)
 {
     push8(snes, REG_PBR);
     push16(snes, REG_PC);
-    push8(snes, snes_get_status_flags(snes));
+    push8(snes, get_status_flags(snes));
     REG_PC = snes_cpu_read16(snes, vector);
     REG_PBR = 0x00;
     FLAG_I = true; // disable interrupts
@@ -1367,7 +1370,7 @@ void snes_cpu_run(struct SNES_Core* snes)
 {
     if (FLAG_I == false)
     {
-
+        // todo: handle interrupts
     }
 
     breakpoint(snes, 0x8075);
@@ -1542,7 +1545,7 @@ void snes_cpu_run(struct SNES_Core* snes)
         case 0xFE: absolute_x(snes);        INC(snes); break;
 
         default:
-            snes_log_fatal("UNK opcode: 0x%02X REG_PC: 0x%04X REG_PBR: 0x%02X REG_A: 0x%04X S: 0x%04X X: 0x%04X Y: 0x%04X P: 0x%02X ticks: %zu\n", opcode, REG_PC, REG_PBR, REG_A, REG_SP, REG_X, REG_Y, snes_get_status_flags(snes), snes->ticks);
+            snes_log_fatal("UNK opcode: 0x%02X REG_PC: 0x%04X REG_PBR: 0x%02X REG_A: 0x%04X S: 0x%04X X: 0x%04X Y: 0x%04X P: 0x%02X ticks: %zu\n", opcode, REG_PC, REG_PBR, REG_A, REG_SP, REG_X, REG_Y, get_status_flags(snes), snes->ticks);
             break;
     }
 

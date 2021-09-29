@@ -1,5 +1,6 @@
 #include "internal.h"
 #include "bit.h"
+#include "types.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -154,7 +155,7 @@ static void snes_apu_write8(struct SNES_Core* snes, uint16_t addr, const uint8_t
     }
 }
 
-uint16_t snes_apu_read16(struct SNES_Core* snes, uint16_t addr)
+static uint16_t snes_apu_read16(struct SNES_Core* snes, uint16_t addr)
 {
     const uint16_t lo = snes_apu_read8(snes, addr + 0);
     const uint16_t hi = snes_apu_read8(snes, addr + 1);
@@ -162,10 +163,106 @@ uint16_t snes_apu_read16(struct SNES_Core* snes, uint16_t addr)
     return (hi << 8) | lo;
 }
 
-void snes_apu_write16(struct SNES_Core* snes, uint16_t addr, uint16_t value)
+static void snes_apu_write16(struct SNES_Core* snes, uint16_t addr, uint16_t value)
 {
     snes_apu_write8(snes, addr + 0, (value >> 0) & 0xFF);
     snes_apu_write8(snes, addr + 1, (value >> 8) & 0xFF);
+}
+
+static void set_status_flags(struct SNES_Core* snes, uint8_t value)
+{
+    FLAG_C = is_bit_set(0, value);
+    FLAG_Z = is_bit_set(1, value);
+    FLAG_I = is_bit_set(2, value);
+    FLAG_H = is_bit_set(3, value);
+    FLAG_B = is_bit_set(4, value);
+    FLAG_P = is_bit_set(5, value);
+    FLAG_V = is_bit_set(6, value);
+    FLAG_N = is_bit_set(7, value);
+}
+
+static uint8_t get_status_flags(const struct SNES_Core* snes)
+{
+    uint8_t value = 0;
+    value |= FLAG_C << 0;
+    value |= FLAG_Z << 1;
+    value |= FLAG_I << 2;
+    value |= FLAG_H << 3;
+    value |= FLAG_B << 4;
+    value |= FLAG_P << 5;
+    value |= FLAG_V << 6;
+    value |= FLAG_N << 7;
+    return value;
+}
+
+// helper for setting flags NZ
+static void set_nz(struct SNES_Core* snes, uint8_t value)
+{
+    FLAG_N = is_bit_set(7, value);
+    FLAG_Z = value == 0;
+}
+
+// and accumulator with memeory
+static void AND(struct SNES_Core* snes)
+{
+    REG_A &= snes_apu_read8(snes, snes->apu.oprand);
+    set_nz(snes, REG_A);
+}
+
+// or accumulator with memeory
+static void ORA(struct SNES_Core* snes)
+{
+    REG_A |= snes_apu_read8(snes, snes->apu.oprand);
+    set_nz(snes, REG_A);
+}
+
+// xor accumulator with memeory
+static void EOR(struct SNES_Core* snes)
+{
+    REG_A ^= snes_apu_read8(snes, snes->apu.oprand);
+    set_nz(snes, REG_A);
+}
+
+// increment a
+static void INA(struct SNES_Core* snes)
+{
+    REG_A++;
+    set_nz(snes, REG_A);
+}
+
+// increment x
+static void INX(struct SNES_Core* snes)
+{
+    REG_X++;
+    set_nz(snes, REG_X);
+}
+
+// increment y
+static void INY(struct SNES_Core* snes)
+{
+    REG_Y++;
+    set_nz(snes, REG_Y);
+}
+
+// decrement a
+static void DEA(struct SNES_Core* snes)
+{
+    REG_A--;
+    set_nz(snes, REG_A);
+}
+
+// decrement x
+static void DEX(struct SNES_Core* snes)
+{
+    REG_X--;
+    set_nz(snes, REG_X);
+}
+
+// decrement y
+static void DEY(struct SNES_Core* snes)
+{
+    REG_Y--;
+    set_nz(snes, REG_Y);
 }
 
 bool snes_apu_init(struct SNES_Core* snes)

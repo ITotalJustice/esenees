@@ -133,13 +133,31 @@ struct SNES_Cpu
 
 struct SNES_Ppu
 {
-    //
-    uint8_t dummy;
+    uint16_t vram[1024 * 32];
+    uint16_t vram_addr; // todo: mask 0x7FFF
+    uint8_t vram_addr_step; // used as an index into step array
+    bool vram_addr_increment_mode; // 0=lo, 1=hi
+
+    uint16_t cgram[256];
+    uint8_t cgram_addr;
+    uint8_t cgram_cached_byte;
+    bool cgram_flipflop;
+
+    // each slot is 4 bytes, also takes 2-bits at the end of oam
+    uint8_t oam[544];
+    uint16_t oam_addr;
+
+    uint8_t obj_size;
+    // name select
+    // name base select
+    bool obj_priority_actiavtion;
+
 };
 
 struct SNES_Apu
 {
     // cpu register set
+    uint16_t oprand;
     uint16_t PC;
     uint8_t SP;
     uint8_t A;
